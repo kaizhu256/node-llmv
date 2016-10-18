@@ -16,6 +16,14 @@ body > * {
 body > button {
     width: 15rem;
 }
+textarea {
+    font-family: monospace;
+    height: 16rem;
+    width: 100%;
+}
+textarea[readonly] {
+    background-color: #ddd;
+}
 .zeroPixel {
     border: 0;
     height: 0;

@@ -202,9 +202,12 @@
             case 'node':
                 switch (options.action) {
                 case 'clear':
-                    local.child_process.spawn('sh', ['-c', 'rm ' + local.db.dbStorage + '/*'], {
-                        stdio: ['ignore', 1, 2]
-                    }).once('exit', function () {
+                    local.child_process.spawn(
+                        'sh',
+                        ['-c', 'rm -f ' + local.db.dbStorage + '/*'],
+                        { stdio: ['ignore', 1, 2] }
+                    // ignore error
+                    ).once('exit', function () {
                         onError();
                     });
                     break;
@@ -214,8 +217,8 @@
                         local.db.dbStorage + '/' + encodeURIComponent(options.key),
                         'utf8',
                         // ignore error
-                        function () {
-                            onError();
+                        function (error, data) {
+                            onError(error && null, data || '');
                         }
                     );
                     break;
