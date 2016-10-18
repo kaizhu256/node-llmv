@@ -99,6 +99,9 @@
             });
             // send data
             xhr.send(xhr.data);
+            // debug
+            document.querySelector('#outputTextareaApi').value = xhr.method + ' ' + xhr.url +
+                '\n\n' + (xhr.data || '');
             return xhr;
         };
 
@@ -379,7 +382,9 @@
                 }
                 reader.addEventListener('load', function () {
                     local.ajax({
-                        url: '/dbImport?data=' + encodeURIComponent(reader.result)
+                        data: reader.result,
+                        method: 'POST',
+                        url: '/dbImport'
                     }, function (error, xhr) {
                         // validate no error occurred
                         local.assert(!error, error);
@@ -453,39 +458,57 @@
 
         // create server
         local.server1 = local.http.createServer(function (request, response) {
-            request.urlParsed = local.url.parse(request.url, true);
-            switch (request.urlParsed.pathname) {
-            case '/':
-                response.end(local['/index.html']);
-                break;
-            case '/dbExport':
-                response.end(local.db.dbExport());
-                break;
-            case '/dbImport':
-                local.db.dbImport(request.urlParsed.query.data);
-                response.end(request.urlParsed.query.data);
-                break;
-            case '/dbReset':
-                local.dbReset();
-                response.end();
-                break;
-            case '/favicon.ico':
-                response.end();
-                break;
-            case '/index.css':
-            case '/index.html':
-            case '/index.js':
-                switch (local.path.extname(request.urlParsed.pathname)) {
-                case '.css':
-                    response.setHeader('Content-Type', 'text/css; charset=UTF-8');
-                    break;
+            var chunkList;
+            chunkList = [];
+            request.on('data', function (chunk) {
+                chunkList.push(chunk);
+            });
+            request.on('end', function () {
+                request.dataText = Buffer.concat(chunkList).toString();
+                request.dataJson = {};
+                try {
+                    request.dataJson = JSON.parse(request.dataText);
+                } catch (ignore) {
                 }
-                response.end(local[request.urlParsed.pathname]);
-                break;
-            default:
-                response.statusCode = 404;
-                response.end();
-            }
+                try {
+                    request.urlParsed = local.url.parse(request.url, true);
+                    switch (request.urlParsed.pathname) {
+                    case '/':
+                        response.end(local['/index.html']);
+                        break;
+                    case '/dbExport':
+                        response.end(local.db.dbExport());
+                        break;
+                    case '/dbImport':
+                        local.db.dbImport(request.dataText);
+                        response.end(request.dataText);
+                        break;
+                    case '/dbReset':
+                        local.dbReset();
+                        response.end();
+                        break;
+                    case '/favicon.ico':
+                        response.end();
+                        break;
+                    case '/index.css':
+                    case '/index.html':
+                    case '/index.js':
+                        switch (local.path.extname(request.urlParsed.pathname)) {
+                        case '.css':
+                            response.setHeader('Content-Type', 'text/css; charset=UTF-8');
+                            break;
+                        }
+                        response.end(local[request.urlParsed.pathname]);
+                        break;
+                    default:
+                        response.statusCode = 404;
+                        response.end();
+                    }
+                } catch (errorCaught) {
+                    response.statusCode = 500;
+                    response.end();
+                }
+            });
         });
         local.server1.on('error', function (error) {
             if (error.code === 'EADDRINUSE' && !local.EADDRINUSE) {
