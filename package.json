@@ -2,5 +2,8 @@
     "package.json": true,
     "author": "kai zhu <kaizhu256@gmail.com>",
     "name": "llmv",
+    "scripts": {
+        "start": "node index.js"
+    },
     "version": "2016.8.2"
 }
