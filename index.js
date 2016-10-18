@@ -42,6 +42,8 @@
         local.db = local.modeJs === 'browser'
             ? local.global.db_lite
             : require('./lib.db.js');
+        // debug local in repl
+        local.global.local = local;
     }());
 
 
@@ -52,9 +54,9 @@
         /*
          * this function will send an ajax-request with error-handling
          */
-            var xhr;
+            var xhr, tmp;
             // init xhr
-            xhr = new XMLHttpRequest();
+            xhr = local._debugXhr = new XMLHttpRequest();
             // init options
             local.objectSetOverride(xhr, options);
             // init headers
@@ -85,6 +87,16 @@
                         xhr.error = new Error(event.type);
                     }
                     onError(xhr.error, xhr);
+                    // debug
+                    try {
+                        try {
+                            tmp = xhr.responseText || '';
+                            tmp = JSON.stringify(JSON.parse(tmp), null, 4);
+                        } catch (ignore) {
+                        }
+                        document.querySelector('#outputTextarea3').value = tmp;
+                    } catch (ignore) {
+                    }
                     break;
                 }
             };
@@ -100,7 +112,7 @@
             // send data
             xhr.send(xhr.data);
             // debug
-            document.querySelector('#outputTextareaApi').value = xhr.method + ' ' + xhr.url +
+            document.querySelector('#outputTextarea2').value = xhr.method + ' ' + xhr.url +
                 '\n\n' + (xhr.data || '');
             return xhr;
         };
@@ -366,6 +378,34 @@
         local.testRun = function (event) {
             var reader, tmp;
             switch (event && event.currentTarget.id) {
+            case 'apiOrderListButton1':
+                local.ajax({ url: 'apiOrderList' }, local.nop);
+                break;
+            case 'apiOrderListCachedButton1':
+                local.ajax({ url: 'apiOrderListCached' }, local.nop);
+                break;
+            case 'apiOrderListDriverButton1':
+                local.ajax({
+                    data: JSON.stringify({
+                        driverId:
+                            document.querySelector('#apiOrderListDriverDriverIdInput1').value
+                    }),
+                    method: 'POST',
+                    url: 'apiOrderListDriver'
+                }, local.nop);
+                break;
+            case 'apiOrderAcceptButton1':
+                local.ajax({
+                    data: JSON.stringify({
+                        driverId:
+                            document.querySelector('#apiOrderAcceptDriverIdInput1').value,
+                        orderId:
+                            document.querySelector('#apiOrderAcceptOrderIdInput1').value
+                    }),
+                    method: 'POST',
+                    url: 'apiOrderAccept'
+                }, local.nop);
+                break;
             case 'dbExportButton1':
                 document.querySelector('#dbExportA1').click();
                 break;
@@ -403,14 +443,6 @@
                     console.log('... resetted db-database');
                 });
                 break;
-            default:
-                document.querySelector('#outputTextarea1').value = '';
-                try {
-                    /*jslint evil: true*/
-                    eval(document.querySelector('#inputTextarea1').value);
-                } catch (errorCaught) {
-                    document.querySelector('#outputTextarea1').value = errorCaught.stack;
-                }
             }
         };
         // init event-handling
@@ -448,9 +480,6 @@
         // init exports
         module.exports.__dirname = __dirname;
 
-        // debug local in repl
-        local.global.local = local;
-
         // init assets
         local['/index.css'] = local.fs.readFileSync('./index.css', 'utf8');
         local['/index.html'] = local.fs.readFileSync('./index.html', 'utf8');
@@ -458,13 +487,14 @@
 
         // create server
         local.server1 = local.http.createServer(function (request, response) {
-            var chunkList;
-            chunkList = [];
+            // debug request
+            local._debugRequest = request;
+            request.chunkList = [];
             request.on('data', function (chunk) {
-                chunkList.push(chunk);
+                request.chunkList.push(chunk);
             });
             request.on('end', function () {
-                request.dataText = Buffer.concat(chunkList).toString();
+                request.dataText = Buffer.concat(request.chunkList).toString();
                 request.dataJson = {};
                 try {
                     request.dataJson = JSON.parse(request.dataText);
@@ -475,6 +505,42 @@
                     switch (request.urlParsed.pathname) {
                     case '/':
                         response.end(local['/index.html']);
+                        break;
+                    // respond with db order list
+                    case '/apiOrderList':
+                        local.dbTableOrder.crudFindMany({
+                            query: { accepted: { $ne: true } }
+                        }, function (error, dbRowList) {
+                            // validate no error occurred
+                            local.assert(!error, error);
+                            response.end(JSON.stringify(dbRowList));
+                        });
+                        break;
+                    // respond with cached order list
+                    case '/apiOrderListCached':
+                        response.end(JSON.stringify(local.apiOrderListCached));
+                        break;
+                    // respond with order list accepted by driver
+                    case '/apiOrderListDriver':
+                        local.dbTableOrder.crudFindMany({
+                            query: { accepted: true, driverId: request.dataJson.driverId }
+                        }, function (error, dbRowList) {
+                            // validate no error occurred
+                            local.assert(!error, error);
+                            response.end(JSON.stringify(dbRowList));
+                        });
+                        break;
+                    // accept order
+                    case '/apiOrderAccept':
+                        local.dbTableOrder.crudUpdate({
+                            orderId: request.dataJson.orderId
+                        }, {
+                            $set: { accepted: true, driverId: request.dataJson.driverId }
+                        }, {}, function (error, dbRowList) {
+                            // validate no error occurred
+                            local.assert(!error, error);
+                            response.end(JSON.stringify(dbRowList));
+                        });
                         break;
                     case '/dbExport':
                         response.end(local.db.dbExport());
@@ -532,10 +598,41 @@
          * this function will reset the db
          */
             local.db.dbClear(local.onErrorDefault);
-            local.dbTableOrder = local.db.dbTableCreate({ name: 'Order' });
+            local.dbTableOrder = local.db.dbTableCreate({ imported: true, name: 'Order' });
+            local.dbTableOrder.crudInsertMany([{
+                customerId: 'customer1',
+                orderId: 'order1'
+            }, {
+                customerId: 'customer2',
+                orderId: 'order2'
+            }, {
+                customerId: 'customer3',
+                orderId: 'order3'
+            }, {
+                customerId: 'customer4',
+                orderId: 'order4'
+            }], local.nop);
         };
         // reset db
         local.dbReset();
+
+        // update cachedOrders every 10 seconds
+        local.dbTableOrder.crudFindMany({
+            query: { accepted: { $ne: true } }
+        }, function (error, dbRowList) {
+            // validate no error occurred
+            local.assert(!error, error);
+            local.apiOrderListCached = dbRowList;
+        });
+        setInterval(function () {
+            local.dbTableOrder.crudFindMany({
+                query: { accepted: { $ne: true } }
+            }, function (error, dbRowList) {
+                // validate no error occurred
+                local.assert(!error, error);
+                local.apiOrderListCached = dbRowList;
+            });
+        }, 10000);
         break;
     }
 }());

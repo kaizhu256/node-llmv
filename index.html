@@ -15,9 +15,27 @@ llmv v0.0.1
     <button class="onclick" id="dbExportButton1">save db-database to file</button><br>
     <a download="db.persistence.json" href="/dbExport" id="dbExportA1"></a>
     <button class="onclick" id="dbImportButton1">load db-database from file</button><br>
-    <input class="onchange zeroPixel" type="file" id="dbImportInput1">
+    <input class="onchange zeroPixel" type="file" id="dbImportInput1"><br>
+
+    <!--!! <label>large list of unaccepted orders from db (slow)</label><br> -->
+    <!--!! <button class="onclick" id="apiOrderListButton1">api - orders</button><br> -->
+    <label>large list of unaccepted orders cached in memory, and updated every 10 seconds from db (fast)</label><br>
+    <button class="onclick" id="apiOrderListCachedButton1">api - cached orders</button><br>
+    <label>small list of orders accepted by driver served from db</label><br>
+    <button class="onclick" id="apiOrderListDriverButton1">api - driver get accepted orders</button>
+    <input id="apiOrderListDriverDriverIdInput1" placeholder="driver id" value="driver1"></input><br>
+    <label>api-call for driver to accept an order</label><br>
+    <button class="onclick" id="apiOrderAcceptButton1">api - driver accept order</button>
+        <input id="apiOrderAcceptDriverIdInput1" placeholder="driver id" value="driver1"></input>
+        <input id="apiOrderAcceptOrderIdInput1" placeholder="order id" value="order1"></input><br>
+    <!--!! <label>api-call for customer to create a new order</label><br> -->
+    <!--!! <button class="onclick" id="apiOrderCreateButton1">api - customer create order</button> -->
+        <!--!! <input placeholder="customer id" value="customer1"></input><br> -->
+
     <label>api call</label>
-    <textarea id="outputTextareaApi" readonly></textarea>
+    <textarea id="outputTextarea2" readonly></textarea>
+    <label>api response</label>
+    <textarea id="outputTextarea3" readonly></textarea>
     <label>stderr and stdout</label>
     <textarea id="outputTextarea1" readonly></textarea>
     <script src="index.js"></script>
